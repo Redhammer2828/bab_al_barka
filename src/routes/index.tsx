@@ -144,7 +144,7 @@ function Index() {
       `}</style>
 
       {/* Fixed full-screen canvas */}
-      <div className="fixed inset-0 z-0 bg-black">
+      <div className="fixed inset-0 z-0 bg-[#2a0003] h-[100dvh] w-full">
         {SCENES.map((scene, i) => (
           <video
             key={i}
@@ -155,7 +155,7 @@ function Index() {
             loop={scene.loop}
             preload={i === 0 ? "auto" : "none"}
             autoPlay={i === 0}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-contain scale-[1.35] md:scale-100 md:object-cover transition-transform duration-700"
             style={{
               opacity: i === active ? 1 : 0,
               transition: "opacity 0.7s ease",
@@ -163,20 +163,21 @@ function Index() {
           />
         ))}
 
-        {/* Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/10 to-black/70 pointer-events-none" />
+        {/* Massive top and bottom gradients to aggressively hide the video's top and bottom separation lines */}
+        <div className="md:hidden absolute top-0 inset-x-0 h-[45dvh] z-10 bg-gradient-to-b from-[#2a0003] from-40% via-[#2a0003]/90 to-transparent pointer-events-none" />
+        <div className="md:hidden absolute bottom-0 inset-x-0 h-[50dvh] z-10 bg-gradient-to-t from-[#2a0003] from-40% via-[#2a0003]/90 to-transparent pointer-events-none" />
 
         {/* Text — key=active forces remount & replays animation */}
         <TextOverlay key={active} scene={SCENES[active]} />
       </div>
 
       {/* Scrollable sentinels — one per scene, each 100vh */}
-      <div className="relative z-10" style={{ height: `${SCENES.length * 100}vh` }}>
+      <div className="relative z-10" style={{ height: `${SCENES.length * 100}dvh` }}>
         {SCENES.map((_, i) => (
           <div
             key={i}
             ref={el => { sentinelRefs.current[i] = el; }}
-            style={{ height: "100vh" }}
+            className="h-[100dvh] w-full"
           />
         ))}
       </div>
