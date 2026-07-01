@@ -102,6 +102,7 @@ function Index() {
   const [active, setActive] = useState(0);
   const videoRefs    = useRef<(HTMLVideoElement | null)[]>([]);
   const sentinelRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Switch video when active changes
   useEffect(() => {
@@ -123,7 +124,7 @@ function Index() {
       if (!el) return null;
       const io = new IntersectionObserver(
         ([entry]) => { if (entry.isIntersecting) setActive(i); },
-        { threshold: 0.5 }
+        { root: scrollContainerRef.current, threshold: 0.5 }
       );
       io.observe(el);
       return io;
@@ -132,7 +133,7 @@ function Index() {
   }, []);
 
   return (
-    <>
+    <div ref={scrollContainerRef} className="h-[100dvh] w-full overflow-y-auto overflow-x-hidden snap-y snap-mandatory relative">
       {isLoading && <EggLoader onComplete={() => setIsLoading(false)} />}
       
       {/* Inject keyframe once */}
@@ -177,13 +178,13 @@ function Index() {
           <div
             key={i}
             ref={el => { sentinelRefs.current[i] = el; }}
-            className="h-[100dvh] w-full"
+            className="h-[100dvh] w-full snap-center"
           />
         ))}
       </div>
 
       {/* ── Farm Fresh Section ───────────────────────────────────────────── */}
-      <div className="relative z-10 bg-[#faf6f0] overflow-hidden">
+      <div className="relative z-10 bg-[#faf6f0] overflow-hidden snap-start">
         {/* Scattered decorative eggs as watermark */}
         <div className="absolute top-10 left-0 -translate-x-1/4 opacity-40 pointer-events-none rotate-[15deg]">
            <EggIcon className="w-96 h-96 text-[#d4c3b3]" />
@@ -377,7 +378,8 @@ function Index() {
             key={i}
             onClick={() => {
               setActive(i);
-              window.scrollTo({ top: i * window.innerHeight, behavior: "smooth" });
+              const topPos = sentinelRefs.current[i]?.offsetTop || (i * window.innerHeight);
+              scrollContainerRef.current?.scrollTo({ top: topPos, behavior: "smooth" });
             }}
             className="w-2 h-2 rounded-full transition-all duration-300"
             style={{
@@ -387,6 +389,6 @@ function Index() {
           />
         ))}
       </div>
-    </>
+    </div>
   );
 }
