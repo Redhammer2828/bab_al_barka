@@ -14,7 +14,19 @@ const ChickenIcon = ({ className }: { className?: string }) => (
 
 const logo = { url: "/Logo.png" };
 
-const SCENES = [
+type Scene = {
+  src: string;
+  desktopSrc?: string;
+  loop: boolean;
+  num: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  align: "right" | "left" | "center";
+  pos: "top" | "bottom";
+};
+
+const SCENES: Scene[] = [
   {
     src: "/hero1.mp4",
     loop: true,
@@ -33,6 +45,7 @@ const SCENES = [
   },
   {
     src: "/hero4.mp4",
+    desktopSrc: "/NEW_edit_1_opt.mp4",
     loop: false,
     num: "03", eyebrow: "Signature Moments",
     title: "Crafted to Delight",
@@ -40,7 +53,7 @@ const SCENES = [
     align: "right" as const, pos: "top" as const,
   },
   {
-    src: "/hero5.mp4",
+    src: "/new_video_22222_opt.mp4",
     loop: false,
     num: "04", eyebrow: "Hospitality",
     title: "Where Guests Become Family",
@@ -48,7 +61,7 @@ const SCENES = [
     align: "right" as const, pos: "bottom" as const,
   },
   {
-    src: "/hero6.mp4",
+    src: "/new_edit_2_opt.mp4",
     loop: false,
     num: "05", eyebrow: "Visit Us",
     title: "Open the Door",
@@ -100,9 +113,16 @@ function TextOverlay({ scene }: { scene: typeof SCENES[0] }) {
 function Index() {
   const [isLoading, setIsLoading] = useState(true);
   const [active, setActive] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
   const videoRefs    = useRef<(HTMLVideoElement | null)[]>([]);
   const sentinelRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Switch video when active changes
   useEffect(() => {
@@ -116,7 +136,7 @@ function Index() {
         vid.pause();
       }
     });
-  }, [active]);
+  }, [active, isDesktop]);
 
   // Sentinel observers — each section is 100vh, threshold 0.5 fires dead-center
   useEffect(() => {
@@ -150,7 +170,7 @@ function Index() {
           <video
             key={i}
             ref={el => { videoRefs.current[i] = el; }}
-            src={scene.src}
+            src={isDesktop && scene.desktopSrc ? scene.desktopSrc : scene.src}
             muted
             playsInline
             loop={scene.loop}
@@ -224,55 +244,88 @@ function Index() {
         </div>
 
         {/* Why Choose Section Background */}
-        <div className="bg-[#240a0e] py-24 relative overflow-hidden">
-          {/* Subtle background glow */}
-          <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-gradient-radial from-[#5c1322]/40 to-transparent blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-          
+        <div className="bg-[#faf6f0] py-24 relative overflow-hidden">
+          {/* Decorative Eggs/Leaves Background */}
+          <div className="absolute top-10 left-10 opacity-20 pointer-events-none rotate-[15deg]">
+             <Leaf className="w-24 h-24 text-green-700" />
+          </div>
+          <div className="absolute top-40 right-20 opacity-20 pointer-events-none -rotate-[30deg]">
+             <EggIcon className="w-32 h-32 text-[#d4c3b3]" />
+          </div>
+          <div className="absolute bottom-20 left-20 opacity-20 pointer-events-none rotate-[45deg]">
+             <EggIcon className="w-40 h-40 text-[#d4c3b3]" />
+          </div>
+          <div className="absolute bottom-40 right-10 opacity-20 pointer-events-none -rotate-[15deg]">
+             <Leaf className="w-32 h-32 text-green-700" />
+          </div>
+
           {/* Why Choose heading */}
-          <div className="relative z-10 max-w-5xl mx-auto px-6 md:px-12 text-center mb-16">
-             <h4 className="font-sans text-[#b3a3a5] text-xs font-bold tracking-[0.3em] uppercase mb-4">The Difference</h4>
-             <h2 className="font-serif text-4xl md:text-5xl text-white mb-2 tracking-wide">
-                Why Choose <span className="italic font-light text-[#f5e6d3] relative whitespace-nowrap">Bab Al Baraka<span className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[120%] h-[1px] bg-gradient-to-r from-transparent via-[#f5e6d3]/40 to-transparent"></span></span>
+          <div className="relative z-10 max-w-5xl mx-auto px-6 md:px-12 text-center mb-20">
+             <div className="flex justify-center items-center gap-4 mb-4">
+                <Leaf className="w-6 h-6 text-green-700" />
+                <h4 className="font-serif italic text-xl md:text-2xl text-[#8b1a1a]">Dear Valuable Customer,</h4>
+                <Leaf className="w-6 h-6 text-green-700 scale-x-[-1]" />
+             </div>
+             <h2 className="font-serif text-4xl md:text-6xl text-[#1a1a1a] mb-2 tracking-wide font-bold">
+                Why Choose <br/>
+                <span className="text-[#8b1a1a]">BAB AL BARAKA EGGS?</span>
              </h2>
           </div>
 
-          {/* Three feature cards */}
-          <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Three feature cards - Stacked and Stylized */}
+          <div className="relative z-10 max-w-4xl mx-auto px-6 md:px-12 flex flex-col gap-12 mb-8">
             {[
               {
-                icon: <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>,
-                title: "Farm Fresh Quality",
-                points: ["Collected fresh daily", "Premium grade", "Quality checked"],
+                icon: <ChickenIcon className="w-12 h-12 text-white" />,
+                title: "FARM FRESH QUALITY",
+                points: [
+                  <>Eggs are collected fresh from trusted farms.</>,
+                  <>Carefully selected for quality and freshness.</>
+                ],
               },
               {
-                icon: <ShieldCheck className="w-5 h-5 text-white/70" strokeWidth={1.5} />,
-                title: "Hygienic Packaging",
-                points: ["Food-grade trays", "Same-day packing", "Minimal handling"],
+                icon: <Package className="w-10 h-10 text-white" />,
+                title: "HYGIENIC PACKAGING PROCESS",
+                points: [
+                  <>Eggs are inspected before packing.</>,
+                  <>Packed in clean, food-grade trays and cartons.</>,
+                  <>Packaging is completed within <strong className="font-bold text-[#8b1a1a]">1 day</strong> to preserve freshness.</>
+                ],
               },
               {
-                icon: <Truck className="w-5 h-5 text-white/70" strokeWidth={1.5} />,
-                title: "Fresh Delivery",
-                points: ["Packed today", "Delivered tomorrow", "Maintains freshness"],
+                icon: <Truck className="w-10 h-10 text-white" />,
+                title: "FRESH DELIVERY",
+                points: [
+                  <>If the hen lays eggs today, we are packing the <strong className="font-bold text-[#8b1a1a]">same day</strong> and delivered <strong className="font-bold text-[#8b1a1a]">tomorrow</strong> fresh to your home.</>,
+                  <>Fast delivery with minimal handling to maintain quality.</>
+                ],
               },
             ].map((card) => (
               <div
                 key={card.title}
-                className="bg-[#2d1419] rounded-3xl p-8 border border-white/5 hover:bg-[#361a20] transition-colors duration-300 flex flex-col"
+                className="relative bg-white rounded-3xl p-6 md:p-8 md:pl-32 border border-[#8b1a1a]/10 shadow-[0_8px_30px_rgba(139,26,26,0.06)] hover:shadow-[0_8px_30px_rgba(139,26,26,0.12)] transition-shadow duration-300 flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-6 md:gap-0"
               >
-                <div className="w-12 h-12 rounded-[14px] bg-[#422226] border border-white/5 flex items-center justify-center mb-6 shadow-inner">
+                {/* Huge overlapping icon circle */}
+                <div className="md:absolute md:-left-8 md:top-1/2 md:-translate-y-1/2 w-28 h-28 rounded-full bg-gradient-to-br from-[#8b1a1a] to-[#4a0909] border-[6px] border-[#d4af37] flex items-center justify-center shadow-xl shrink-0 z-10">
                   {card.icon}
+                  {/* Decorative small leaves on the icon circle */}
+                  <Leaf className="absolute -bottom-2 -right-2 w-8 h-8 text-green-700 bg-white rounded-full p-1 shadow-sm" />
                 </div>
-                <h3 className="font-serif text-white text-2xl tracking-wide mb-6">
-                  {card.title}
-                </h3>
-                <ul className="space-y-4">
-                  {card.points.map((pt, idx) => (
-                    <li key={idx} className="flex items-center gap-3 text-[15px] text-[#b3a3a5] font-light">
-                      <svg className="w-4 h-4 text-white/60 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                      {pt}
-                    </li>
-                  ))}
-                </ul>
+                
+                <div className="flex-1">
+                  <h3 className="font-serif text-[#8b1a1a] text-2xl md:text-3xl font-bold tracking-wide mb-6 flex items-center justify-center md:justify-start gap-3">
+                    {card.title}
+                    <Leaf className="w-6 h-6 text-green-700 hidden md:block" />
+                  </h3>
+                  <ul className="space-y-4 text-left w-full">
+                    {card.points.map((pt, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-[16px] text-[#444] font-medium leading-relaxed">
+                        <CheckCircle className="w-6 h-6 mt-0.5 text-[#8b1a1a] shrink-0 fill-[#8b1a1a] stroke-white" />
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             ))}
           </div>
