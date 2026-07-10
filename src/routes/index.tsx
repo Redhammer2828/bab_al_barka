@@ -23,50 +23,57 @@ type Scene = {
   title: string;
   body: string;
   align: "right" | "left" | "center";
-  pos: "top" | "bottom";
+  pos: "top" | "bottom" | "middle";
+  revealLastSecs?: number;
 };
 
 const SCENES: Scene[] = [
   {
-    src: "/hero1.mp4",
+    src: "/scene1-mobile.mp4",
+    desktopSrc: "/scene1-desktop.mp4",
     loop: true,
     num: "01", eyebrow: "Bab Al Baraka",
     title: "A Gateway to Blessings",
-    body: "Step through the door — where heritage greets hospitality and every detail is poured with intention.",
-    align: "right" as const, pos: "bottom" as const,
+    body: "Premium farm fresh eggs — where quality meets care in every single egg we deliver.",
+    align: "right" as const, pos: "middle" as const,
   },
   {
-    src: "/hero23.mp4",
+    src: "/scene2-mobile.mp4",
+    desktopSrc: "/scene2-desktop.mp4",
     loop: false,
-    num: "02", eyebrow: "Our Craft",
-    title: "Rooted in Tradition",
-    body: "Recipes passed down through generations, prepared with patience and the finest ingredients.",
-    align: "right" as const, pos: "bottom" as const,
+    num: "02", eyebrow: "From Our Farms",
+    title: "Nature Knows Best",
+    body: "Healthy, well-cared-for hens laying fresh eggs daily — pure, natural, and full of goodness.",
+    align: "right" as const, pos: "middle" as const,
   },
   {
-    src: "/hero4.mp4",
-    desktopSrc: "/NEW_edit_1_opt.mp4",
+    src: "/scene3-mobile.mp4",
+    desktopSrc: "/scene3-desktop.mp4",
     loop: false,
-    num: "03", eyebrow: "Signature Moments",
-    title: "Crafted to Delight",
-    body: "Dishes that honour their origin and surprise the senses, presented with quiet artistry.",
+    num: "03", eyebrow: "Daily Harvest",
+    title: "Collected Fresh, Every Day",
+    body: "Each egg is gathered daily and quality-checked, so freshness is never left to chance.",
     align: "right" as const, pos: "top" as const,
   },
   {
-    src: "/new_video_22222_opt.mp4",
+    src: "/scene4-mobile.mp4",
+    desktopSrc: "/scene4-desktop.mp4",
     loop: false,
-    num: "04", eyebrow: "Hospitality",
-    title: "Where Guests Become Family",
-    body: "Generosity is our oldest tradition. Every table tells a story of welcome and care.",
-    align: "right" as const, pos: "bottom" as const,
+    num: "04", eyebrow: "Hygienic Packing",
+    title: "Packed with Care",
+    body: "Sorted, inspected, and sealed in food-grade trays the same day — minimal handling, maximum freshness.",
+    align: "right" as const, pos: "middle" as const,
+    revealLastSecs: 2,
   },
   {
-    src: "/new_edit_2_opt.mp4",
+    src: "/scene5-mobile.mp4",
+    desktopSrc: "/scene5-desktop.mp4",
     loop: false,
-    num: "05", eyebrow: "Visit Us",
-    title: "Open the Door",
-    body: "Reserve a seat at our table and let the journey begin.",
-    align: "center" as const, pos: "bottom" as const,
+    num: "05", eyebrow: "Order Today",
+    title: "From Our Farm to Your Kitchen",
+    body: "Order online or find us in stores across the UAE — delivered fresh to your doorstep by tomorrow.",
+    align: "left" as const, pos: "middle" as const,
+    revealLastSecs: 2,
   },
 ];
 
@@ -82,19 +89,27 @@ export const Route = createFileRoute("/")({
 });
 
 // ── Text overlay — key prop forces remount = replays animation ───────────────
-function TextOverlay({ scene }: { scene: typeof SCENES[0] }) {
-  const posClass = scene.pos === "top" ? "top-28" : "bottom-20";
+function TextOverlay({ scene, visible }: { scene: typeof SCENES[0]; visible: boolean }) {
+  // Mobile: always top, centered. Desktop (md+): per-scene pos/align.
+  const posClass =
+    scene.pos === "top" ? "top-28 md:top-32"
+    : scene.pos === "middle" ? "top-28 md:top-1/2 md:-translate-y-1/2"
+    : "top-28 md:top-auto md:bottom-20";
   const alignClass =
     scene.align === "right"
-      ? "right-0 items-end text-right px-8 md:px-14 max-w-lg"
+      ? "inset-x-0 mx-auto items-center text-center md:right-0 md:inset-x-auto md:mx-0 md:items-end md:text-right px-6 md:px-14 max-w-sm md:max-w-lg"
       : scene.align === "left"
-        ? "left-0 items-start text-left px-8 md:px-14 max-w-lg"
-        : "inset-x-0 mx-auto items-center text-center px-8 max-w-xl";
+        ? "inset-x-0 mx-auto items-center text-center md:left-0 md:inset-x-auto md:mx-0 md:items-start md:text-left px-6 md:px-14 max-w-sm md:max-w-lg"
+        : "inset-x-0 mx-auto items-center text-center px-6 md:px-8 max-w-sm md:max-w-xl";
 
   return (
     <div
       className={`absolute z-10 flex flex-col ${posClass} ${alignClass}`}
-      style={{ animation: "fadeSlideUp 0.7s cubic-bezier(.22,1,.36,1) forwards" }}
+      style={
+        scene.revealLastSecs
+          ? { opacity: visible ? 1 : 0, transition: "opacity 0.6s ease" }
+          : { animation: "fadeSlideUp 0.7s cubic-bezier(.22,1,.36,1) forwards" }
+      }
     >
       <div className="text-[11px] tracking-[0.4em] uppercase text-white/60 mb-3">
         {scene.num} — {scene.eyebrow}
@@ -113,18 +128,20 @@ function TextOverlay({ scene }: { scene: typeof SCENES[0] }) {
 function Index() {
   const [isLoading, setIsLoading] = useState(true);
   const [active, setActive] = useState(0);
-  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [textVisible, setTextVisible] = useState(true);
   const videoRefs    = useRef<(HTMLVideoElement | null)[]>([]);
   const sentinelRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 768);
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Switch video when active changes
+  // Switch video when active changes; prefetch the next scene so it's ready before the user scrolls to it
   useEffect(() => {
     videoRefs.current.forEach((vid, i) => {
       if (!vid) return;
@@ -136,7 +153,29 @@ function Index() {
         vid.pause();
       }
     });
+    const next = videoRefs.current[active + 1];
+    if (next && next.preload === "none") { next.preload = "auto"; next.load(); }
   }, [active, isDesktop]);
+
+  // Late-reveal text: for scenes with revealLastSecs, only show text during the final N seconds
+  useEffect(() => {
+    const revealSecs = SCENES[active].revealLastSecs;
+    if (!revealSecs) { setTextVisible(true); return; }
+    setTextVisible(false);
+    const vid = videoRefs.current[active];
+    if (!vid) return;
+    const handleTimeUpdate = () => {
+      if (vid.duration && vid.duration - vid.currentTime <= revealSecs) setTextVisible(true);
+    };
+    vid.addEventListener("timeupdate", handleTimeUpdate);
+    return () => vid.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [active, isDesktop]);
+
+  const scrollToScene = (i: number) => {
+    setActive(i);
+    const topPos = sentinelRefs.current[i]?.offsetTop ?? (i * window.innerHeight);
+    window.scrollTo({ top: topPos, behavior: "smooth" });
+  };
 
   // Sentinel observers — each section is 100vh, threshold 0.5 fires dead-center
   useEffect(() => {
@@ -144,7 +183,7 @@ function Index() {
       if (!el) return null;
       const io = new IntersectionObserver(
         ([entry]) => { if (entry.isIntersecting) setActive(i); },
-        { root: scrollContainerRef.current, threshold: 0.5 }
+        { threshold: 0.5 }
       );
       io.observe(el);
       return io;
@@ -153,7 +192,7 @@ function Index() {
   }, []);
 
   return (
-    <div ref={scrollContainerRef} className="h-[100dvh] w-full overflow-y-auto overflow-x-hidden snap-y snap-mandatory relative">
+    <div ref={scrollContainerRef} className="w-full relative">
       {isLoading && <EggLoader onComplete={() => setIsLoading(false)} />}
       
       {/* Inject keyframe once */}
@@ -176,7 +215,7 @@ function Index() {
             loop={scene.loop}
             preload={i === 0 ? "auto" : "none"}
             autoPlay={i === 0}
-            className="absolute inset-0 h-full w-full object-contain scale-[1.35] md:scale-100 md:object-cover transition-transform duration-700"
+            className="absolute inset-0 h-full w-full object-contain md:object-cover"
             style={{
               opacity: i === active ? 1 : 0,
               transition: "opacity 0.7s ease",
@@ -184,12 +223,8 @@ function Index() {
           />
         ))}
 
-        {/* Massive top and bottom gradients to aggressively hide the video's top and bottom separation lines */}
-        <div className="md:hidden absolute top-0 inset-x-0 h-[45dvh] z-10 bg-gradient-to-b from-[#2a0003] from-40% via-[#2a0003]/90 to-transparent pointer-events-none" />
-        <div className="md:hidden absolute bottom-0 inset-x-0 h-[50dvh] z-10 bg-gradient-to-t from-[#2a0003] from-40% via-[#2a0003]/90 to-transparent pointer-events-none" />
-
         {/* Text — key=active forces remount & replays animation */}
-        <TextOverlay key={active} scene={SCENES[active]} />
+        <TextOverlay key={active} scene={SCENES[active]} visible={textVisible} />
       </div>
 
       {/* Scrollable sentinels — one per scene, each 100vh */}
@@ -198,13 +233,13 @@ function Index() {
           <div
             key={i}
             ref={el => { sentinelRefs.current[i] = el; }}
-            className="h-[100dvh] w-full snap-center"
+            className="h-[100dvh] w-full"
           />
         ))}
       </div>
 
       {/* ── Farm Fresh Section ───────────────────────────────────────────── */}
-      <div className="relative z-10 bg-[#faf6f0] overflow-hidden snap-start">
+      <div className="relative z-10 bg-[#faf6f0] overflow-hidden">
         {/* Scattered decorative eggs as watermark */}
         <div className="absolute top-10 left-0 -translate-x-1/4 opacity-40 pointer-events-none rotate-[15deg]">
            <EggIcon className="w-96 h-96 text-[#d4c3b3]" />
@@ -404,23 +439,24 @@ function Index() {
 
 
       {/* Fixed header */}
-      <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 backdrop-blur-md bg-black/20">
+      <header className="fixed top-4 inset-x-4 md:inset-x-12 z-50 flex items-center justify-between px-6 md:px-8 py-3 rounded-full backdrop-blur-md bg-black/40 border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
         <div className="flex items-center gap-3">
-          <img src={logo.url} alt="Bab Al Baraka" className="h-12 w-12 rounded-full ring-1 ring-white/20" />
-          <div className="hidden sm:block leading-tight">
-            <div className="font-serif text-xl text-white">Bab Al Baraka</div>
+          <img src={logo.url} alt="Bab Al Baraka" className="h-10 w-10 md:h-12 md:w-12 rounded-full ring-1 ring-[#d4af37]/60" />
+          <div className="leading-tight">
+            <div className="font-serif text-lg md:text-xl text-white">Bab Al Baraka</div>
+            <div className="hidden sm:block text-[10px] tracking-[0.3em] uppercase text-white/50">Farm Fresh Eggs</div>
           </div>
         </div>
         <nav className="hidden md:flex items-center gap-8 text-sm tracking-wide text-white/80">
-          <a href="#" onClick={() => setActive(0)} className="hover:text-white transition cursor-pointer">Story</a>
-          <a href="#" onClick={() => setActive(1)} className="hover:text-white transition cursor-pointer">Craft</a>
-          <a href="#" onClick={() => setActive(4)} className="hover:text-white transition cursor-pointer">Visit</a>
+          <button onClick={() => scrollToScene(0)} className="hover:text-white transition cursor-pointer">Story</button>
+          <button onClick={() => scrollToScene(1)} className="hover:text-white transition cursor-pointer">Craft</button>
+          <button onClick={() => scrollToScene(4)} className="hover:text-white transition cursor-pointer">Visit</button>
         </nav>
         <button
-          onClick={() => setActive(4)}
-          className="text-xs tracking-[0.2em] uppercase border border-white/40 px-4 py-2 rounded-full hover:bg-white hover:text-black transition text-white"
+          onClick={() => document.getElementById("order-section")?.scrollIntoView({ behavior: "smooth" })}
+          className="text-xs tracking-[0.2em] uppercase bg-[#8b1a1a] hover:bg-[#a02222] px-5 py-2.5 rounded-full transition text-white font-medium shadow-[0_4px_14px_rgba(139,26,26,0.5)]"
         >
-          Reserve
+          Order Now
         </button>
       </header>
 
@@ -429,11 +465,7 @@ function Index() {
         {SCENES.map((_, i) => (
           <button
             key={i}
-            onClick={() => {
-              setActive(i);
-              const topPos = sentinelRefs.current[i]?.offsetTop || (i * window.innerHeight);
-              scrollContainerRef.current?.scrollTo({ top: topPos, behavior: "smooth" });
-            }}
+            onClick={() => scrollToScene(i)}
             className="w-2 h-2 rounded-full transition-all duration-300"
             style={{
               background: i === active ? "white" : "rgba(255,255,255,0.3)",
