@@ -15,6 +15,9 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+.env
+lambda-dist/
+lambda-deploy.zip
 
 # Wrangler / Cloudflare
 .wrangler/

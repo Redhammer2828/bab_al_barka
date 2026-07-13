@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import Lenis from "lenis";
 import { Bird, Package, Truck, ShieldCheck, Award, Clock, MapPin, CheckCircle, Leaf } from "lucide-react";
 import { EggIcon } from "../components/EggIcon";
 import { EggLoader } from "../components/EggLoader";
 import { OrderSection } from "../components/OrderSection";
+import { ProductsSection } from "../components/ProductsSection";
+import { FloatingCartBar } from "../components/FloatingCartBar";
+import { CartProvider } from "../lib/cart-context";
 
 
 const ChickenIcon = ({ className }: { className?: string }) => (
@@ -102,22 +106,28 @@ function TextOverlay({ scene, visible }: { scene: typeof SCENES[0]; visible: boo
         ? "inset-x-0 mx-auto items-center text-center md:left-0 md:inset-x-auto md:mx-0 md:items-start md:text-left px-6 md:px-14 max-w-sm md:max-w-lg"
         : "inset-x-0 mx-auto items-center text-center px-6 md:px-8 max-w-sm md:max-w-xl";
 
+  const gated = !!scene.revealLastSecs;
+  const lineStyle = (delayMs: number): CSSProperties =>
+    gated
+      ? {
+          opacity: visible ? 1 : 0,
+          filter: visible ? "blur(0px)" : "blur(10px)",
+          transform: visible ? "translateY(0)" : "translateY(14px)",
+          transition: `opacity 0.7s cubic-bezier(.22,1,.36,1) ${delayMs}ms, filter 0.7s cubic-bezier(.22,1,.36,1) ${delayMs}ms, transform 0.7s cubic-bezier(.22,1,.36,1) ${delayMs}ms`,
+        }
+      : {
+          animation: `textRiseIn 0.8s cubic-bezier(.22,1,.36,1) ${delayMs}ms both`,
+        };
+
   return (
-    <div
-      className={`absolute z-10 flex flex-col ${posClass} ${alignClass}`}
-      style={
-        scene.revealLastSecs
-          ? { opacity: visible ? 1 : 0, transition: "opacity 0.6s ease" }
-          : { animation: "fadeSlideUp 0.7s cubic-bezier(.22,1,.36,1) forwards" }
-      }
-    >
-      <div className="text-[11px] tracking-[0.4em] uppercase text-white/60 mb-3">
+    <div className={`absolute z-10 flex flex-col ${posClass} ${alignClass}`}>
+      <div className="text-[11px] tracking-[0.4em] uppercase text-white/60 mb-3" style={lineStyle(0)}>
         {scene.num} — {scene.eyebrow}
       </div>
-      <h2 className="font-serif text-3xl md:text-5xl lg:text-6xl leading-[1.05] mb-4 text-white">
+      <h2 className="font-serif text-3xl md:text-5xl lg:text-6xl leading-[1.05] mb-4 text-white" style={lineStyle(120)}>
         {scene.title}
       </h2>
-      <p className="text-sm md:text-base text-white/80 leading-relaxed">
+      <p className="text-sm md:text-base text-white/80 leading-relaxed" style={lineStyle(240)}>
         {scene.body}
       </p>
     </div>
@@ -141,21 +151,31 @@ function Index() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Switch video when active changes; prefetch the next scene so it's ready before the user scrolls to it
+  // Switch video when active changes
   useEffect(() => {
     videoRefs.current.forEach((vid, i) => {
       if (!vid) return;
       if (i === active) {
         if (vid.preload === "none") { vid.preload = "auto"; vid.load(); }
         vid.currentTime = 0;
-        vid.play().catch(() => {});
+        const tryPlay = () => vid.play().catch(() => {});
+        if (vid.readyState >= 3) tryPlay();
+        else vid.addEventListener("canplay", tryPlay, { once: true });
       } else {
         vid.pause();
       }
     });
-    const next = videoRefs.current[active + 1];
-    if (next && next.preload === "none") { next.preload = "auto"; next.load(); }
   }, [active, isDesktop]);
+
+  // Eagerly buffer every scene shortly after first paint so scene switches never stall
+  useEffect(() => {
+    const t = setTimeout(() => {
+      videoRefs.current.forEach((vid) => {
+        if (vid && vid.preload === "none") { vid.preload = "auto"; vid.load(); }
+      });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [isDesktop]);
 
   // Late-reveal text: for scenes with revealLastSecs, only show text during the final N seconds
   useEffect(() => {
@@ -171,24 +191,87 @@ function Index() {
     return () => vid.removeEventListener("timeupdate", handleTimeUpdate);
   }, [active, isDesktop]);
 
+  // Lenis smooth scrolling — interpolates all wheel/touch input for a buttery, seamless feel
+  const lenisRef = useRef<Lenis | null>(null);
+  useEffect(() => {
+    const lenis = new Lenis({ lerp: 0.08, smoothWheel: true });
+    lenisRef.current = lenis;
+    let raf = 0;
+    const loop = (time: number) => {
+      lenis.raf(time);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, []);
+
+  const sceneLock = useRef(false);
   const scrollToScene = (i: number) => {
     setActive(i);
     const topPos = sentinelRefs.current[i]?.offsetTop ?? (i * window.innerHeight);
-    window.scrollTo({ top: topPos, behavior: "smooth" });
+    sceneLock.current = true;
+    lenisRef.current?.scrollTo(topPos, {
+      duration: 1.2,
+      lock: true,
+      onComplete: () => {
+        // Small cooldown so trailing wheel momentum can't skip a scene
+        setTimeout(() => { sceneLock.current = false; }, 250);
+      },
+    });
   };
 
-  // Sentinel observers — each section is 100vh, threshold 0.5 fires dead-center
+  // One wheel gesture = one scene while inside the hero story.
+  // Captured before Lenis so momentum can never skip scenes; past the last
+  // scene the wheel falls through to normal (Lenis-smoothed) scrolling.
   useEffect(() => {
-    const ios = sentinelRefs.current.map((el, i) => {
-      if (!el) return null;
-      const io = new IntersectionObserver(
-        ([entry]) => { if (entry.isIntersecting) setActive(i); },
-        { threshold: 0.5 }
-      );
-      io.observe(el);
-      return io;
-    });
-    return () => ios.forEach(io => io?.disconnect());
+    const onWheel = (e: WheelEvent) => {
+      const vh = window.innerHeight;
+      const heroEnd = (SCENES.length - 1) * vh;
+      const y = window.scrollY;
+      const inHero = y < heroEnd - 1;
+      const atHeroEnd = y <= heroEnd + 1;
+      const cur = Math.min(SCENES.length - 1, Math.max(0, Math.round(y / vh)));
+
+      if (e.deltaY > 0) {
+        if (!inHero) return; // at/after last scene — normal scroll continues to products
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!sceneLock.current) scrollToScene(Math.min(SCENES.length - 1, cur + 1));
+      } else if (e.deltaY < 0) {
+        if (!atHeroEnd || cur === 0) return; // above scene 0 or below hero — normal scroll
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!sceneLock.current) scrollToScene(Math.max(0, cur - 1));
+      }
+    };
+    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => window.removeEventListener("wheel", onWheel, { capture: true });
+  }, []);
+
+  // Scroll-driven scene switching (touch/drag/scrollbar paths) — midpoint of each 100vh band
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const i = Math.min(
+          SCENES.length - 1,
+          Math.max(0, Math.round(window.scrollY / window.innerHeight)),
+        );
+        setActive((prev) => (prev === i ? prev : i));
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   return (
@@ -197,10 +280,13 @@ function Index() {
       
       {/* Inject keyframe once */}
       <style>{`
-        @keyframes fadeSlideUp {
-          from { opacity: 0; transform: translateY(28px); }
-          to   { opacity: 1; transform: translateY(0); }
+        @keyframes textRiseIn {
+          from { opacity: 0; filter: blur(10px); transform: translateY(14px); }
+          to   { opacity: 1; filter: blur(0px); transform: translateY(0); }
         }
+        /* Hide the browser scrollbar — page still scrolls normally */
+        html { scrollbar-width: none; -ms-overflow-style: none; }
+        html::-webkit-scrollbar { display: none; }
       `}</style>
 
       {/* Fixed full-screen canvas */}
@@ -219,6 +305,8 @@ function Index() {
             style={{
               opacity: i === active ? 1 : 0,
               transition: "opacity 0.7s ease",
+              willChange: "opacity",
+              transform: "translateZ(0)",
             }}
           />
         ))}
@@ -426,8 +514,12 @@ function Index() {
           </div>
         </div>
 
-        {/* Order Section */}
-        <OrderSection />
+        {/* Products + Order Section */}
+        <CartProvider>
+          <ProductsSection />
+          <OrderSection />
+          <FloatingCartBar />
+        </CartProvider>
 
         {/* Footer */}
         <footer className="bg-[#1a1a1a] py-12 px-6 md:px-12 text-center text-white/50 text-sm border-t border-white/10">
@@ -439,11 +531,11 @@ function Index() {
 
 
       {/* Fixed header */}
-      <header className="fixed top-4 inset-x-4 md:inset-x-12 z-50 flex items-center justify-between px-6 md:px-8 py-3 rounded-full backdrop-blur-md bg-black/40 border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
-        <div className="flex items-center gap-3">
-          <img src={logo.url} alt="Bab Al Baraka" className="h-10 w-10 md:h-12 md:w-12 rounded-full ring-1 ring-[#d4af37]/60" />
-          <div className="leading-tight">
-            <div className="font-serif text-lg md:text-xl text-white">Bab Al Baraka</div>
+      <header className="fixed top-4 inset-x-3 md:inset-x-12 z-50 flex items-center justify-between px-3 sm:px-6 md:px-8 py-2.5 sm:py-3 rounded-full backdrop-blur-md bg-black/40 border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.3)] gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <img src={logo.url} alt="Bab Al Baraka" className="h-9 w-9 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-full ring-1 ring-[#d4af37]/60 shrink-0" />
+          <div className="leading-tight min-w-0">
+            <div className="font-serif text-sm sm:text-lg md:text-xl text-white whitespace-nowrap">Bab Al Baraka</div>
             <div className="hidden sm:block text-[10px] tracking-[0.3em] uppercase text-white/50">Farm Fresh Eggs</div>
           </div>
         </div>
@@ -454,7 +546,7 @@ function Index() {
         </nav>
         <button
           onClick={() => document.getElementById("order-section")?.scrollIntoView({ behavior: "smooth" })}
-          className="text-xs tracking-[0.2em] uppercase bg-[#8b1a1a] hover:bg-[#a02222] px-5 py-2.5 rounded-full transition text-white font-medium shadow-[0_4px_14px_rgba(139,26,26,0.5)]"
+          className="text-[10px] sm:text-xs tracking-[0.15em] sm:tracking-[0.2em] uppercase bg-[#8b1a1a] hover:bg-[#a02222] px-3 sm:px-5 py-2 sm:py-2.5 rounded-full transition text-white font-medium shadow-[0_4px_14px_rgba(139,26,26,0.5)] whitespace-nowrap shrink-0"
         >
           Order Now
         </button>
